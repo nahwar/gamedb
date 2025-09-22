@@ -1,39 +1,55 @@
 from fastapi import FastAPI, Depends
-from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy import Column, Integer, create_engine, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from pydantic import BaseModel
 from typing import List
+from datetime import datetime
+import os
+from contextlib import asynccontextmanager
 
 # Database setup
-DATABASE_URL = "postgresql://username:password@localhost:5432/gamedb"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost:5432/gamedb")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 # Database Model
-class GameData(Base):
-    __tablename__ = "game_data"
+class Object(Base):
+    __tablename__ = "object"
     
     id = Column(Integer, primary_key=True, index=True)
-    data = Column(String)  # Store your game data as JSON string or however you need
+    # Object type (id)
+    o_type = Column(Integer)
+    # Object position (x, y, z)
+    o_pos = Column(String, default="0,0,0")
+    # Object rotation (x, y, z)
+    o_rot = Column(String, default="0,0,0")
+    create_date = Column(DateTime, default=datetime.now())
 
 # Pydantic Model
-class GameDataCreate(BaseModel):
-    data: str
+class ObjectCreate(BaseModel):
+    o_type: int
+    o_pos: str
+    o_rot: str
 
-class GameDataResponse(BaseModel):
+class ObjectResponse(BaseModel):
     id: int
-    data: str
-    
+    o_type: int
+    o_pos: str
+    o_rot: str
+    create_date: datetime
+
     class Config:
         from_attributes = True
 
-# Create tables
-Base.metadata.create_all(bind=engine)
-
 # FastAPI app
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 # Database dependency
 def get_db():
@@ -44,15 +60,15 @@ def get_db():
         db.close()
 
 # Store game data
-@app.post("/game-data/", response_model=GameDataResponse)
-def create_game_data(game_data: GameDataCreate, db: Session = Depends(get_db)):
-    db_data = GameData(data=game_data.data)
+@app.post("/add-object/", response_model=ObjectResponse)
+def add_object(game_data: ObjectCreate, db: Session = Depends(get_db)):
+    db_data = Object(**game_data.dict())
     db.add(db_data)
     db.commit()
     db.refresh(db_data)
     return db_data
 
 # Retrieve all game data
-@app.get("/game-data/", response_model=List[GameDataResponse])
-def get_game_data(db: Session = Depends(get_db)):
-    return db.query(GameData).all()
+@app.get("/get-objects/", response_model=List[ObjectResponse])
+def get_objects(db: Session = Depends(get_db)):
+    return db.query(Object).all()
