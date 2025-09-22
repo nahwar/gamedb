@@ -10,6 +10,9 @@ import json
 import redis
 from contextlib import asynccontextmanager
 
+# CONST
+CACHE_DURATION = 30  # Cache duration in seconds
+
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost:5432/gamedb")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
@@ -84,11 +87,8 @@ def add_object(game_data: ObjectCreate, db: Session = Depends(get_db)):
     db.add(db_data)
     db.commit()
     
-    # Invalidate cache when new object is added
-    try:
-        redis_client.delete("objects:latest:100")
-    except Exception as e:
-        print(f"Cache invalidation error: {e}")
+    # No cache invalidation - let cache expire naturally after 30 seconds
+    # This allows better performance with constant POSTs, accepting some stale data
     
     return Response(status_code=201)
 
@@ -114,9 +114,9 @@ def get_objects(db: Session = Depends(get_db)):
     # Convert to dict format for caching
     objects_data = [{"id": obj.id, "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
     
-    # Cache the result for 60 seconds
+    # Cache the result for 30 seconds
     try:
-        redis_client.setex(cache_key, 60, json.dumps(objects_data))
+        redis_client.setex(cache_key, CACHE_DURATION, json.dumps(objects_data))
     except Exception as e:
         print(f"Cache set error: {e}")
     
