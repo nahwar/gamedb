@@ -11,6 +11,20 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    command: >
+      postgres
+      -c max_connections=150
+      -c shared_buffers=512MB
+      -c effective_cache_size=1536MB
+      -c maintenance_work_mem=128MB
+      -c checkpoint_completion_target=0.7
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U username -d gamedb"]
       interval: 10s
@@ -60,6 +74,83 @@ services:
       redis:
         condition: service_healthy
 
+  app4:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://username:password@db:5432/gamedb
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app5:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://username:password@db:5432/gamedb
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app6:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://username:password@db:5432/gamedb
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app7:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://username:password@db:5432/gamedb
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app8:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://username:password@db:5432/gamedb
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app9:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://username:password@db:5432/gamedb
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app10:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://username:password@db:5432/gamedb
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   nginx:
     image: nginx:alpine
     ports:
@@ -70,6 +161,13 @@ services:
       - app1
       - app2
       - app3
+      - app4
+      - app5
+      - app6
+      - app7
+      - app8
+      - app9
+      - app10
 
 volumes:
   postgres_data:

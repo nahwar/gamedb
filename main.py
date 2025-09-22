@@ -13,7 +13,16 @@ from contextlib import asynccontextmanager
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost:5432/gamedb")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
-engine = create_engine(DATABASE_URL)
+
+# Optimized connection pool for 10 instances
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=4,              # 4 connections per instance
+    max_overflow=6,           # Up to 6 additional connections
+    pool_pre_ping=True,       # Verify connections before use
+    pool_recycle=3600,        # Recycle connections every hour
+    echo=False                # Set to True for SQL debugging
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -90,7 +99,7 @@ def get_objects(db: Session = Depends(get_db)):
     cache_key = "objects:latest:100"
     try:
         cached_data = redis_client.get(cache_key)
-        if cached_data:
+        if cached_data and isinstance(cached_data, str):
             # Parse cached JSON data and convert to ObjectResponse objects
             objects_data = json.loads(cached_data)
             print("Cache hit")
