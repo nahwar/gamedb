@@ -2,13 +2,15 @@ from fastapi import FastAPI, Depends, Response
 from sqlalchemy import Column, Integer, create_engine, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
 import os
 import json
-import redis
+import redis.asyncio as redis
 from contextlib import asynccontextmanager
+import asyncio
 
 # CONST
 CACHE_DURATION = 30  # Cache duration in seconds
@@ -17,19 +19,36 @@ CACHE_DURATION = 30  # Cache duration in seconds
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@localhost:5432/gamedb")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 
-# Optimized connection pool for 10 instances
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=4,              # 4 connections per instance
-    max_overflow=6,           # Up to 6 additional connections
+# Convert PostgreSQL URL to async version
+ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+
+# Async database engine for high concurrency
+async_engine = create_async_engine(
+    ASYNC_DATABASE_URL,
+    pool_size=10,             # Increased for high concurrency
+    max_overflow=20,          # More overflow connections
     pool_pre_ping=True,       # Verify connections before use
     pool_recycle=3600,        # Recycle connections every hour
     echo=False                # Set to True for SQL debugging
 )
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = async_sessionmaker(
+    async_engine, 
+    class_=AsyncSession,
+    expire_on_commit=False
+)
+
+# Keep sync engine for table creation
+sync_engine = create_engine(
+    DATABASE_URL,
+    pool_size=4,
+    max_overflow=6,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    echo=False
+)
 Base = declarative_base()
 
-# Redis setup
+# Async Redis setup
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 # Database Model
@@ -62,30 +81,30 @@ class ObjectResponse(BaseModel):
 # FastAPI app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=sync_engine)
     yield
 
 app = FastAPI(lifespan=lifespan)
 
-# Database dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Async database dependency
+async def get_db():
+    async with AsyncSessionLocal() as db:
+        try:
+            yield db
+        finally:
+            await db.close()
 
 # Health check endpoint
 @app.get("/health")
-def health_check():
+async def health_check():
     return {"status": "healthy"}
 
 # Store game data
 @app.post("/add-object")
-def add_object(game_data: ObjectCreate, db: Session = Depends(get_db)):
+async def add_object(game_data: ObjectCreate, db: AsyncSession = Depends(get_db)):
     db_data = Object(**game_data.dict())
     db.add(db_data)
-    db.commit()
+    await db.commit()
     
     # No cache invalidation - let cache expire naturally after 30 seconds
     # This allows better performance with constant POSTs, accepting some stale data
@@ -94,11 +113,11 @@ def add_object(game_data: ObjectCreate, db: Session = Depends(get_db)):
 
 # Retrieve all game data
 @app.get("/get-objects", response_model=List[ObjectResponse])
-def get_objects(db: Session = Depends(get_db)):
+async def get_objects(db: AsyncSession = Depends(get_db)):
     # Try to get data from cache first
     cache_key = "objects:latest:100"
     try:
-        cached_data = redis_client.get(cache_key)
+        cached_data = await redis_client.get(cache_key)
         if cached_data and isinstance(cached_data, str):
             # Parse cached JSON data and convert to ObjectResponse objects
             objects_data = json.loads(cached_data)
@@ -109,15 +128,17 @@ def get_objects(db: Session = Depends(get_db)):
         print(f"Cache error: {e}")
     
     # If not in cache, get from database
-    objects = db.query(Object).order_by(Object.id.desc()).limit(100).all()
+    from sqlalchemy import select
+    result = await db.execute(select(Object).order_by(Object.id.desc()).limit(100))
+    objects = result.scalars().all()
     
     # Convert to dict format for caching
     objects_data = [{"id": obj.id, "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
     
     # Cache the result for 30 seconds
     try:
-        redis_client.setex(cache_key, CACHE_DURATION, json.dumps(objects_data))
+        await redis_client.setex(cache_key, CACHE_DURATION, json.dumps(objects_data))
     except Exception as e:
         print(f"Cache set error: {e}")
     
-    return objects
+    return [ObjectResponse(**obj) for obj in objects_data]
