@@ -63,94 +63,6 @@ services:
       redis:
         condition: service_healthy
 
-  app3:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  app4:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  app5:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  app6:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  app7:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  app8:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  app9:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  app10:
-    build: .
-    environment:
-      DATABASE_URL: postgresql://username:password@db:5432/gamedb
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
   nginx:
     image: nginx:alpine
     ports:
@@ -160,14 +72,6 @@ services:
     depends_on:
       - app1
       - app2
-      - app3
-      - app4
-      - app5
-      - app6
-      - app7
-      - app8
-      - app9
-      - app10
 
 volumes:
   postgres_data:

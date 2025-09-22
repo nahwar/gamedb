@@ -25,8 +25,8 @@ ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg:/
 # Async database engine for high concurrency
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    pool_size=10,             # Increased for high concurrency
-    max_overflow=20,          # More overflow connections
+    pool_size=20,             # Higher pool per instance since we have fewer instances
+    max_overflow=30,          # More overflow connections per instance
     pool_pre_ping=True,       # Verify connections before use
     pool_recycle=3600,        # Recycle connections every hour
     echo=False                # Set to True for SQL debugging
