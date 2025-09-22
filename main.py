@@ -78,10 +78,66 @@ class ObjectResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# Function to check if table schema matches our model
+def check_table_schema():
+    """Check if the existing table schema matches our SQLAlchemy model"""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(sync_engine)
+        
+        # Check if table exists
+        if not inspector.has_table("object"):
+            print("Table 'object' does not exist")
+            return False
+        
+        # Get existing columns
+        existing_columns = inspector.get_columns("object")
+        existing_column_names = {col['name'] for col in existing_columns}
+        
+        # Expected columns from our model
+        expected_columns = {'id', 'o_type', 'o_pos', 'o_rot'}
+        
+        # Check if all expected columns exist
+        missing_columns = expected_columns - existing_column_names
+        if missing_columns:
+            print(f"Missing columns: {missing_columns}")
+            return False
+        
+        # Check if there are extra columns (optional check)
+        extra_columns = existing_column_names - expected_columns
+        if extra_columns:
+            print(f"Extra columns found: {extra_columns}")
+            # You might want to return False here if you want strict schema matching
+        
+        print("Table schema matches the model")
+        return True
+        
+    except Exception as e:
+        print(f"Error checking schema: {e}")
+        return False
+
 # FastAPI app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=sync_engine)
+    # Check if we need to recreate tables
+    try:
+        if check_table_schema():
+            print("Schema is up to date, no changes needed")
+        else:
+            print("Schema mismatch detected, recreating tables...")
+            Base.metadata.drop_all(bind=sync_engine)
+            print("Creating new tables...")
+            Base.metadata.create_all(bind=sync_engine)
+            print("Tables recreated successfully")
+    except Exception as e:
+        print(f"Error managing tables: {e}")
+        # If there's any error, try to create tables anyway
+        try:
+            Base.metadata.create_all(bind=sync_engine)
+            print("Tables created after error recovery")
+        except Exception as e2:
+            print(f"Failed to create tables: {e2}")
+            raise e2
     yield
 
 app = FastAPI(lifespan=lifespan)
