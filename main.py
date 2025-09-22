@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, create_engine, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List
 from datetime import datetime
 import os
@@ -68,6 +68,19 @@ class ObjectCreate(BaseModel):
     o_type: int
     o_pos: str
     o_rot: str
+
+    @field_validator('o_pos', 'o_rot')
+    @classmethod
+    def validate_coordinates(cls, v):
+        coords = v.split(",")
+        if len(coords) != 3:
+            raise ValueError("Coordinates must be in 'x,y,z' format")
+        for coord in coords:
+            try:
+                float(coord.strip())
+            except ValueError:
+                raise ValueError("Coordinates must be floats")
+        return v
 
 class ObjectResponse(BaseModel):
     id: int
@@ -162,10 +175,7 @@ async def add_object(game_data: ObjectCreate, db: AsyncSession = Depends(get_db)
     db.add(db_data)
     await db.commit()
     
-    # No cache invalidation - let cache expire naturally after 30 seconds
-    # This allows better performance with constant POSTs, accepting some stale data
-    
-    return Response(status_code=201)
+    return Response("Created!!!", status_code=201)
 
 # Retrieve all game data
 @app.get("/get-objects", response_model=List[ObjectResponse])
