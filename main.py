@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Response
 from sqlalchemy import Column, Integer, create_engine, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -25,7 +25,6 @@ class Object(Base):
     o_pos = Column(String, default="0,0,0")
     # Object rotation (x, y, z)
     o_rot = Column(String, default="0,0,0")
-    create_date = Column(DateTime, default=datetime.now())
 
 # Pydantic Model
 class ObjectCreate(BaseModel):
@@ -38,7 +37,6 @@ class ObjectResponse(BaseModel):
     o_type: int
     o_pos: str
     o_rot: str
-    create_date: datetime
 
     class Config:
         from_attributes = True
@@ -60,15 +58,14 @@ def get_db():
         db.close()
 
 # Store game data
-@app.post("/add-object/", response_model=ObjectResponse)
+@app.post("/add-object/")
 def add_object(game_data: ObjectCreate, db: Session = Depends(get_db)):
     db_data = Object(**game_data.dict())
     db.add(db_data)
     db.commit()
-    db.refresh(db_data)
-    return db_data
+    return Response(status_code=201)
 
 # Retrieve all game data
 @app.get("/get-objects/", response_model=List[ObjectResponse])
 def get_objects(db: Session = Depends(get_db)):
-    return db.query(Object).all()
+    return db.query(Object).order_by(Object.id.desc()).limit(100).all()
