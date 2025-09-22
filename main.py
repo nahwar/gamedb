@@ -1,16 +1,16 @@
 from fastapi import FastAPI, Depends, Response
-from sqlalchemy import Column, Integer, create_engine, DateTime, String
+from fastapi.middleware.gzip import GZipMiddleware
+from sqlalchemy import Column, Integer, create_engine, String, select
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from pydantic import BaseModel, field_validator
-from typing import List
-from datetime import datetime
 import os
 import json
 import redis.asyncio as redis
 from contextlib import asynccontextmanager
 import asyncio
+import gzip
+from fastapi.responses import Response as FastAPIResponse
 
 # CONST
 CACHE_DURATION = 30  # Cache duration in seconds
@@ -155,6 +155,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Add Gzip compression middleware
+# This will compress responses when the client supports it
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Async database dependency
 async def get_db():
     async with AsyncSessionLocal() as db:
@@ -177,34 +181,45 @@ async def add_object(game_data: ObjectCreate, db: AsyncSession = Depends(get_db)
     
     return Response("Created!!!", status_code=201)
 
-# Retrieve all game data
-@app.get("/get-objects", response_model=List[ObjectResponse])
+# Retrieve all game data with compression
+@app.get("/get-objects")
 async def get_objects(db: AsyncSession = Depends(get_db)):
     # Try to get data from cache first
-    cache_key = "objects:latest:100"
+    cache_key = "objects:latest:200:compressed"
     try:
         cached_data = await redis_client.get(cache_key)
-        if cached_data and isinstance(cached_data, str):
-            # Parse cached JSON data and convert to ObjectResponse objects
-            objects_data = json.loads(cached_data)
-            print("Cache hit")
-            return [ObjectResponse(**obj) for obj in objects_data]
+        if cached_data:
+            print("Compressed cache hit")
+            # Return compressed data directly
+            compressed_data = cached_data.encode('latin1')  # Redis stores as string, convert back to bytes
+            return FastAPIResponse(
+                content=compressed_data,
+                media_type="application/json",
+                headers={"Content-Encoding": "gzip"}
+            )
     except Exception as e:
-        # If Redis is not available, continue without cache
         print(f"Cache error: {e}")
     
     # If not in cache, get from database
-    from sqlalchemy import select
-    result = await db.execute(select(Object).order_by(Object.id.desc()).limit(100))
+    result = await db.execute(select(Object).order_by(Object.id.desc()).limit(200))
     objects = result.scalars().all()
     
-    # Convert to dict format for caching
+    # Convert to dict format
     objects_data = [{"id": obj.id, "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
     
-    # Cache the result for 30 seconds
+    # Convert to JSON and compress
+    json_data = json.dumps(objects_data)
+    compressed_data = gzip.compress(json_data.encode('utf-8'))
+    
+    # Cache the compressed result
     try:
-        await redis_client.setex(cache_key, CACHE_DURATION, json.dumps(objects_data))
+        # Store compressed data as string in Redis
+        await redis_client.setex(cache_key, CACHE_DURATION, compressed_data.decode('latin1'))
     except Exception as e:
         print(f"Cache set error: {e}")
     
-    return [ObjectResponse(**obj) for obj in objects_data]
+    return FastAPIResponse(
+        content=compressed_data,
+        media_type="application/json",
+        headers={"Content-Encoding": "gzip"}
+    )
