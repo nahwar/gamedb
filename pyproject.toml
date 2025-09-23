@@ -11,4 +11,5 @@ dependencies = [
     "sqlalchemy>=2.0.43",
     "uvicorn>=0.36.0",
     "redis>=5.0.0",
+    "locust>=2.40.5",
 ]
