@@ -1,0 +1,38 @@
+# Ignore VCS
+.git
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Test caches
+.pytest_cache/
+.mypy_cache/
+
+# Editor directories
+.vscode/
+.idea/
+
+# Environment files
+.env
+
+# Locust and loadtest files (dev-only)
+locustfile.py
+locustfiles/
+
+# OS files
+*.swp
+*.DS_Store
