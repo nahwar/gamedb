@@ -5,7 +5,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
+from typing import Optional
 import os
 import json
 import redis.asyncio as redis
@@ -107,9 +108,22 @@ class ObjectCreate(BaseModel):
         return v
         
 class IncomingData(BaseModel):
-    obj: ObjectCreate
-    message: MessageCreate
+    # obj and message are optional, but we require at least one to be provided
+    obj: Optional[ObjectCreate] = None
+    message: Optional[MessageCreate] = None
     phantom: PhantomCreate
+
+    @model_validator(mode="before")
+    @classmethod
+    def ensure_obj_or_message(cls, values):
+        # values is the raw input mapping before coercion
+        if not values:
+            raise ValueError("Incoming data must include at least one of 'obj' or 'message'.")
+        obj = values.get('obj')
+        message = values.get('message')
+        if obj is None and message is None:
+            raise ValueError("At least one of 'obj' or 'message' must be provided")
+        return values
 
 class ObjectResponse(BaseModel):
     id: int
@@ -280,12 +294,18 @@ async def health_check():
 # Store game data
 @app.post("/add-object")
 async def add_object(game_data: IncomingData, db: AsyncSession = Depends(get_db)):
-    obj_data = Object(**game_data.obj.dict())
-    msg_data = Message(**game_data.message.dict())
+    # Check if obj_data is valid
+    if game_data.obj is not None:
+        obj_data = Object(**game_data.obj.dict())
+        db.add(obj_data)
+    # Check if msg data is valid
+    if game_data.message is not None:
+        msg_data = Message(**game_data.message.dict())
+        db.add(msg_data)
+    # We always send phantom data
     db_data = Phantom(**game_data.phantom.dict())
-    db.add(obj_data)
-    db.add(msg_data)
     db.add(db_data)
+
     await db.commit()
     
     return Response("Created!!!", status_code=201)
