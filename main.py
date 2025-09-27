@@ -51,8 +51,10 @@ sync_engine = create_engine(
 )
 Base = declarative_base()
 
-# Async Redis setup
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+# Async Redis setup (binary-safe, store bytes directly)
+# Use decode_responses=False so Redis returns bytes for binary blobs
+# and set a reasonable max_connections to avoid exhausting connections.
+redis_client = redis.from_url(REDIS_URL, decode_responses=False, max_connections=50)
 
 # Database Model
 class Object(Base):
@@ -318,11 +320,10 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
     try:
         cached_data = await redis_client.get(cache_key)
         if cached_data:
+            # With decode_responses=False, cached_data is bytes (binary-safe)
             print("Compressed cache hit")
-            # Return compressed data directly
-            compressed_data = cached_data.encode('latin1')  # Redis stores as string, convert back to bytes
             return FastAPIResponse(
-                content=compressed_data,
+                content=cached_data,
                 media_type="application/json",
                 headers={"Content-Encoding": "gzip"}
             )
@@ -354,10 +355,9 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
 
     compressed_data = gzip.compress(json.dumps(all_data).encode('utf-8'))
 
-    # Cache the compressed result
+    # Cache the compressed result (store bytes directly)
     try:
-        # Store compressed data as string in Redis
-        await redis_client.setex(cache_key, CACHE_DURATION, compressed_data.decode('latin1'))
+        await redis_client.setex(cache_key, CACHE_DURATION, compressed_data)
     except Exception as e:
         print(f"Cache set error: {e}")
     
