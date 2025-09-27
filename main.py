@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional
 import os
-import json
+import orjson
 import redis.asyncio as redis
 from contextlib import asynccontextmanager
 import asyncio
@@ -353,7 +353,7 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
         "phantoms": phantoms_data
     }
 
-    compressed_data = gzip.compress(json.dumps(all_data).encode('utf-8'))
+    compressed_data = gzip.compress(orjson.dumps(all_data))
 
     # Cache the compressed result (store bytes directly)
     try:
