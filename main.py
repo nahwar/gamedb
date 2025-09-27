@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Depends, Response
-from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import Column, Integer, create_engine, String, select, JSON, MetaData, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import inspect as sa_inspect
@@ -276,9 +275,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Add Gzip compression middleware
-# This will compress responses when the client supports it
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Note: We intentionally do manual gzip compression for the
+# `/get-objects` response and store compressed bytes in Redis.
+# Removing FastAPI's GZipMiddleware prevents double compression
+# and gives us explicit control over caching compressed blobs.
 
 # Async database dependency
 async def get_db():
