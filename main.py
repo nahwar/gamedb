@@ -60,6 +60,7 @@ class Object(Base):
     __tablename__ = "object"
     
     id = Column(Integer, primary_key=True, index=True)
+    u_uuid = Column(String, index=True, nullable=False)
     # Object type (id)
     o_type = Column(Integer)
     # Object position (x, y, z)
@@ -71,6 +72,7 @@ class Message(Base):
     __tablename__ = "message"
     
     id = Column(Integer, primary_key=True, index=True)
+    u_uuid = Column(String, index=True, nullable=False)
     part1 = Column(String, default="")
     part2 = Column(String, default="")
     part3 = Column(String, default="")
@@ -79,18 +81,22 @@ class Phantom(Base):
     __tablename__ = "phantom"
     
     id = Column(Integer, primary_key=True, index=True)
+    u_uuid = Column(String, index=True, nullable=False)
     data = Column(JSON, default=[])
 
 class MessageCreate(BaseModel):
+    u_uuid: str
     part1: str
     part2: str
     part3: str
 
 class PhantomCreate(BaseModel):
+    u_uuid: str
     data: list[list[str]]
 
 # Pydantic Model
 class ObjectCreate(BaseModel):
+    u_uuid: str
     o_type: int
     o_pos: str
     o_rot: str
@@ -128,6 +134,7 @@ class IncomingData(BaseModel):
 
 class ObjectResponse(BaseModel):
     id: int
+    u_uuid: str
     o_type: int
     o_pos: str
     o_rot: str
@@ -137,6 +144,7 @@ class ObjectResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     id: int
+    u_uuid: str
     part1: str
     part2: str
     part3: str
@@ -146,6 +154,7 @@ class MessageResponse(BaseModel):
 
 class PhantomResponse(BaseModel):
     id: int
+    u_uuid: str
     data: list[list[str]]
 
     class Config:
@@ -172,7 +181,7 @@ def check_table_schema():
         # Get existing columns
         existing_columns = inspector.get_columns("object")
         existing_column_names = {col['name'] for col in existing_columns}
-        expected_columns = {'id', 'o_type', 'o_pos', 'o_rot'}
+        expected_columns = {'id', 'u_uuid', 'o_type', 'o_pos', 'o_rot'}
         missing_columns = expected_columns - existing_column_names
         if missing_columns:
             print(f"Missing columns: {missing_columns}")
@@ -183,7 +192,7 @@ def check_table_schema():
 
         existing_columns = inspector.get_columns("message")
         existing_column_names = {col['name'] for col in existing_columns}
-        expected_columns = {'id', 'part1', 'part2', 'part3'}
+        expected_columns = {'id', 'u_uuid', 'part1', 'part2', 'part3'}
         missing_columns = expected_columns - existing_column_names
         if missing_columns:
             print(f"Missing columns in 'message': {missing_columns}")
@@ -194,7 +203,7 @@ def check_table_schema():
 
         existing_columns = inspector.get_columns("phantom")
         existing_column_names = {col['name'] for col in existing_columns}
-        expected_columns = {'id', 'data'}
+        expected_columns = {'id', 'u_uuid', 'data'}
         missing_columns = expected_columns - existing_column_names
         if missing_columns:
             print(f"Missing columns in 'phantom': {missing_columns}")
@@ -335,17 +344,17 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
     objects = result.scalars().all()
     
     # Convert to dict format
-    objects_data = [{"id": obj.id, "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
+    objects_data = [{"id": obj.id, "u_uuid": obj.u_uuid, "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
 
     # Get messages
     result = await db.execute(select(Message).order_by(Message.id.desc()).limit(200))
     messages = result.scalars().all()
-    messages_data = [{"id": msg.id, "part1": msg.part1, "part2": msg.part2, "part3": msg.part3} for msg in messages]
+    messages_data = [{"id": msg.id, "u_uuid": msg.u_uuid, "part1": msg.part1, "part2": msg.part2, "part3": msg.part3} for msg in messages]
 
     # Get phantoms
     result = await db.execute(select(Phantom).order_by(Phantom.id.desc()).limit(20))
     phantoms = result.scalars().all()
-    phantoms_data = [{"id": ph.id, "data": ph.data} for ph in phantoms]
+    phantoms_data = [{"id": ph.id, "u_uuid": ph.u_uuid, "data": ph.data} for ph in phantoms]
 
     all_data = {
         "objects": objects_data,
