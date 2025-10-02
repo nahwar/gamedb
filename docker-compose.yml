@@ -41,6 +41,7 @@ services:
 
   app1:
     build: .
+    image: mygameapp:latest
     environment:
       DATABASE_URL: postgresql://username:password@db:5432/gamedb
       REDIS_URL: redis://redis:6379
@@ -52,6 +53,7 @@ services:
 
   app2:
     build: .
+    image: mygameapp:latest
     environment:
       DATABASE_URL: postgresql://username:password@db:5432/gamedb
       REDIS_URL: redis://redis:6379
