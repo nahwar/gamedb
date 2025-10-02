@@ -1,11 +1,11 @@
 FROM python:3.10-slim
 
+COPY --from=docker.io/astral/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
 
-COPY pyproject.toml .
+COPY . .
 
-RUN pip install --no-cache-dir -e .
+RUN uv sync --no-cache --no-dev --frozen
 
-COPY main.py .
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
