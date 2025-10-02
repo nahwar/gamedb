@@ -27,11 +27,11 @@ ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg:/
 # Async database engine for high concurrency
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    pool_size=20,             # Higher pool per instance since we have fewer instances
-    max_overflow=30,          # More overflow connections per instance
-    pool_pre_ping=True,       # Verify connections before use
-    pool_recycle=3600,        # Recycle connections every hour
-    echo=False                # Set to True for SQL debugging
+    pool_size=20,
+    max_overflow=30,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    echo=False
 )
 AsyncSessionLocal = async_sessionmaker(
     async_engine, 
@@ -50,9 +50,6 @@ sync_engine = create_engine(
 )
 Base = declarative_base()
 
-# Async Redis setup (binary-safe, store bytes directly)
-# Use decode_responses=False so Redis returns bytes for binary blobs
-# and set a reasonable max_connections to avoid exhausting connections.
 redis_client = redis.from_url(REDIS_URL, decode_responses=False, max_connections=50)
 
 # Database Model
@@ -82,6 +79,8 @@ class Phantom(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     u_uuid = Column(String, index=True, nullable=False)
+    # Phantom data as JSON array of arrays
+    # Example: [["pos1", "rot1"], ["pos2", "rot2"]]
     data = Column(JSON, default=[])
 
 class MessageCreate(BaseModel):
@@ -115,7 +114,6 @@ class ObjectCreate(BaseModel):
         return v
         
 class IncomingData(BaseModel):
-    # obj and message are optional, but we require at least one to be provided
     obj: Optional[ObjectCreate] = None
     message: Optional[MessageCreate] = None
     phantom: PhantomCreate
@@ -123,7 +121,7 @@ class IncomingData(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def ensure_obj_or_message(cls, values):
-        # values is the raw input mapping before coercion
+        # we want at least one of obj or message
         if not values:
             raise ValueError("Incoming data must include at least one of 'obj' or 'message'.")
         obj = values.get('obj')
@@ -192,7 +190,6 @@ async def get_db():
         finally:
             await db.close()
 
-# Health check endpoint
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
@@ -216,7 +213,7 @@ async def add_object(game_data: IncomingData, db: AsyncSession = Depends(get_db)
     
     return Response("Created!!!", status_code=201)
 
-# Retrieve all game data with compression
+# Retrieve last cached game data or retrieve
 @app.get("/get-objects")
 async def get_objects(db: AsyncSession = Depends(get_db)):
     # Try to get data from cache first
@@ -224,7 +221,6 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
     try:
         cached_data = await redis_client.get(cache_key)
         if cached_data:
-            # With decode_responses=False, cached_data is bytes (binary-safe)
             print("Compressed cache hit")
             return FastAPIResponse(
                 content=cached_data,
@@ -259,7 +255,7 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
 
     compressed_data = gzip.compress(orjson.dumps(all_data))
 
-    # Cache the compressed result (store bytes directly)
+    # Cache the compressed result
     try:
         await redis_client.setex(cache_key, CACHE_DURATION, compressed_data)
     except Exception as e:
