@@ -1,6 +1,6 @@
 # BUILD STAGE
 
-FROM ghcr.io/astral-sh/uv:python3.12-alpine AS builder
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN uv sync --no-cache --no-dev --locked
 
 # PROD
 
-FROM python:3.12-alpine AS production
+FROM python:3.12-slim-bookworm AS production
 
 WORKDIR /app
 

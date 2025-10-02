@@ -52,7 +52,6 @@ services:
         condition: service_healthy
 
   app2:
-    build: .
     image: mygameapp:latest
     environment:
       DATABASE_URL: postgresql://username:password@db:5432/gamedb
