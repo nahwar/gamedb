@@ -52,7 +52,7 @@ Base = declarative_base()
 
 redis_client = redis.from_url(REDIS_URL, decode_responses=False, max_connections=50)
 
-# Database Model
+# Database Models
 class Object(Base):
     __tablename__ = "object"
     
@@ -83,6 +83,7 @@ class Phantom(Base):
     # Example: [["pos1", "rot1"], ["pos2", "rot2"]]
     data = Column(JSON, default=[])
 
+# Pydantic Models
 class MessageCreate(BaseModel):
     u_uuid: str
     part1: str
