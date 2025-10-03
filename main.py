@@ -71,6 +71,7 @@ class Message(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     u_uuid = Column(Uuid, index=True, nullable=False)
+    m_pos = Column(String, default="0,0,0")
     part1 = Column(String, default="")
     part2 = Column(String, default="")
     part3 = Column(String, default="")
@@ -87,6 +88,7 @@ class Phantom(Base):
 # Pydantic Models
 class MessageCreate(BaseModel):
     u_uuid: UUID
+    m_pos: str
     part1: str
     part2: str
     part3: str
@@ -200,7 +202,7 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
     # Get messages
     result = await db.execute(select(Message).order_by(Message.id.desc()).limit(200))
     messages = result.scalars().all()
-    messages_data = [{"id": msg.id, "u_uuid": str(msg.u_uuid), "part1": msg.part1, "part2": msg.part2, "part3": msg.part3} for msg in messages]
+    messages_data = [{"id": msg.id, "u_uuid": str(msg.u_uuid), "m_pos": msg.m_pos, "part1": msg.part1, "part2": msg.part2, "part3": msg.part3} for msg in messages]
 
     # Get phantoms
     result = await db.execute(select(Phantom).order_by(Phantom.id.desc()).limit(20))
