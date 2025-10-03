@@ -99,19 +99,6 @@ class ObjectCreate(BaseModel):
     o_type: int
     o_pos: str
     o_rot: str
-
-    @field_validator('o_pos', 'o_rot')
-    @classmethod
-    def validate_coordinates(cls, v):
-        coords = v.split(",")
-        if len(coords) != 3:
-            raise ValueError("Coordinates must be in 'x,y,z' format")
-        for coord in coords:
-            try:
-                float(coord.strip())
-            except ValueError:
-                raise ValueError("Coordinates must be floats")
-        return v
         
 class IncomingData(BaseModel):
     obj: Optional[ObjectCreate] = None
@@ -129,34 +116,6 @@ class IncomingData(BaseModel):
         if obj is None and message is None:
             raise ValueError("At least one of 'obj' or 'message' must be provided")
         return values
-
-class ObjectResponse(BaseModel):
-    id: int
-    u_uuid: str
-    o_type: int
-    o_pos: str
-    o_rot: str
-
-    class Config:
-        from_attributes = True
-
-class MessageResponse(BaseModel):
-    id: int
-    u_uuid: str
-    part1: str
-    part2: str
-    part3: str
-
-    class Config:
-        from_attributes = True
-
-class PhantomResponse(BaseModel):
-    id: int
-    u_uuid: str
-    data: list[list[str]]
-
-    class Config:
-        from_attributes = True
 
 # FastAPI app
 @asynccontextmanager
@@ -230,11 +189,10 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         print(f"Cache error: {e}")
     
-    # If not in cache, get from database
+    # Cache miss
+    # Get objects
     result = await db.execute(select(Object).order_by(Object.id.desc()).limit(200))
     objects = result.scalars().all()
-    
-    # Convert to dict format
     objects_data = [{"id": obj.id, "u_uuid": obj.u_uuid, "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
 
     # Get messages
