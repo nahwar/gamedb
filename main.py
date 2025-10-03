@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, Response
-from sqlalchemy import Column, Integer, create_engine, String, select, JSON, MetaData, text
+from sqlalchemy import Column, Integer, create_engine, String, select, JSON, MetaData, text, Uuid
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError, ProgrammingError
@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import gzip
 from fastapi.responses import Response as FastAPIResponse
+from uuid import UUID
 
 # CONST
 CACHE_DURATION = 30  # Cache duration in seconds
@@ -57,7 +58,7 @@ class Object(Base):
     __tablename__ = "object"
     
     id = Column(Integer, primary_key=True, index=True)
-    u_uuid = Column(String, index=True, nullable=False)
+    u_uuid = Column(Uuid, index=True, nullable=False)
     # Object type (id)
     o_type = Column(Integer)
     # Object position (x, y, z)
@@ -69,7 +70,7 @@ class Message(Base):
     __tablename__ = "message"
     
     id = Column(Integer, primary_key=True, index=True)
-    u_uuid = Column(String, index=True, nullable=False)
+    u_uuid = Column(Uuid, index=True, nullable=False)
     part1 = Column(String, default="")
     part2 = Column(String, default="")
     part3 = Column(String, default="")
@@ -78,25 +79,25 @@ class Phantom(Base):
     __tablename__ = "phantom"
     
     id = Column(Integer, primary_key=True, index=True)
-    u_uuid = Column(String, index=True, nullable=False)
+    u_uuid = Column(Uuid, index=True, nullable=False)
     # Phantom data as JSON array of arrays
     # Example: [["pos1", "rot1"], ["pos2", "rot2"]]
     data = Column(JSON, default=[])
 
 # Pydantic Models
 class MessageCreate(BaseModel):
-    u_uuid: str
+    u_uuid: UUID
     part1: str
     part2: str
     part3: str
 
 class PhantomCreate(BaseModel):
-    u_uuid: str
+    u_uuid: UUID
     data: list[list[str]]
 
 # Pydantic Model
 class ObjectCreate(BaseModel):
-    u_uuid: str
+    u_uuid: UUID
     o_type: int
     o_pos: str
     o_rot: str
@@ -194,17 +195,17 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
     # Get objects
     result = await db.execute(select(Object).order_by(Object.id.desc()).limit(200))
     objects = result.scalars().all()
-    objects_data = [{"id": obj.id, "u_uuid": obj.u_uuid, "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
+    objects_data = [{"id": obj.id, "u_uuid": str(obj.u_uuid), "o_type": obj.o_type, "o_pos": obj.o_pos, "o_rot": obj.o_rot} for obj in objects]
 
     # Get messages
     result = await db.execute(select(Message).order_by(Message.id.desc()).limit(200))
     messages = result.scalars().all()
-    messages_data = [{"id": msg.id, "u_uuid": msg.u_uuid, "part1": msg.part1, "part2": msg.part2, "part3": msg.part3} for msg in messages]
+    messages_data = [{"id": msg.id, "u_uuid": str(msg.u_uuid), "part1": msg.part1, "part2": msg.part2, "part3": msg.part3} for msg in messages]
 
     # Get phantoms
     result = await db.execute(select(Phantom).order_by(Phantom.id.desc()).limit(20))
     phantoms = result.scalars().all()
-    phantoms_data = [{"id": ph.id, "u_uuid": ph.u_uuid, "data": ph.data} for ph in phantoms]
+    phantoms_data = [{"id": ph.id, "u_uuid": str(ph.u_uuid), "data": ph.data} for ph in phantoms]
 
     all_data = {
         "objects": objects_data,
