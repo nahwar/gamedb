@@ -152,9 +152,13 @@ Stores new game data including object, message, and phantom information.
 **Note:** At least one of `obj` or `message` must be provided. `phantom` is required.
 
 ## Data Models
+The system includes three main data models: Object, Message, and Phantom.  
+These models should cover the most common use cases for asynchronous multiplayer interactions.  
+Adding new models or fields can be done with minimal changes to the existing codebase.
 
 ### Object
-Represents a game object with position and rotation.
+Represents a game object with position and rotation.  
+Can be used for items, structures, or markers placed by players.
 
 | Field   | Type   | Description                          |
 |---------|--------|--------------------------------------|
@@ -165,26 +169,27 @@ Represents a game object with position and rotation.
 | o_rot   | string | Rotation values (x,y,z format)       |
 
 ### Message
-Stores user messages in three parts.
+Stores user messages in three parts.  
+Can be used for hints, warnings, or notes left by players.
 
 | Field   | Type   | Description                    |
 |---------|--------|--------------------------------|
 | id      | int    | Auto-generated primary key     |
 | u_uuid  | string | User identifier                |
+| m_pos   | string | Message position (x,y,z format)|
 | part1   | string | Message part 1                 |
 | part2   | string | Message part 2                 |
 | part3   | string | Message part 3                 |
 
 ### Phantom
-Stores phantom data as JSON arrays for recording player movement sequences.
+Stores phantom data as JSON arrays for recording player movement sequences.  
+Can be used to create ghostly replays of player actions.
 
 | Field   | Type            | Description                                      |
 |---------|-----------------|--------------------------------------------------|
 | id      | int             | Auto-generated primary key                       |
 | u_uuid  | string          | User identifier                                  |
 | data    | array of arrays | Phantom position/rotation recording data         |
-
-**Example Use Case**: Record a player's movement path through a level, which can later be replayed as a ghost or phantom for other players to see, similar to Dark Souls bloodstains or Death Stranding's other player traces.
 
 ## Configuration
 
