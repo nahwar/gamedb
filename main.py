@@ -1,19 +1,18 @@
-from fastapi import FastAPI, Depends, Response
-from sqlalchemy import Column, Integer, create_engine, String, select, JSON, MetaData, text, Uuid
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.exc import IntegrityError, ProgrammingError
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from pydantic import BaseModel, field_validator, model_validator
-from typing import Optional
+import gzip
 import os
+from contextlib import asynccontextmanager
+from typing import Optional
+from uuid import UUID
+
 import orjson
 import redis.asyncio as redis
-from contextlib import asynccontextmanager
-import asyncio
-import gzip
+from fastapi import Depends, FastAPI, Response
 from fastapi.responses import Response as FastAPIResponse
-from uuid import UUID
+from pydantic import BaseModel, model_validator
+from sqlalchemy import JSON, Column, Integer, String, Uuid, create_engine, select
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.declarative import declarative_base
 
 # CONST
 CACHE_DURATION = 30  # Cache duration in seconds
