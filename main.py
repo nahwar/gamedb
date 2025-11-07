@@ -71,9 +71,9 @@ class Message(Base):
     id = Column(Integer, primary_key=True, index=True)
     u_uuid = Column(Uuid, index=True, nullable=False)
     m_pos = Column(String, default="0,0,0")
-    part1 = Column(String, default="")
-    part2 = Column(String, default="")
-    part3 = Column(String, default="")
+    part1 = Column(Integer, default=0)
+    part2 = Column(Integer, default=0)
+    part3 = Column(Integer, default=0)
 
 class Phantom(Base):
     __tablename__ = "phantom"
@@ -88,9 +88,9 @@ class Phantom(Base):
 class MessageCreate(BaseModel):
     u_uuid: UUID
     m_pos: str
-    part1: str
-    part2: str
-    part3: str
+    part1: int
+    part2: int
+    part3: int
 
 class PhantomCreate(BaseModel):
     u_uuid: UUID
