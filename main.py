@@ -9,7 +9,7 @@ import redis.asyncio as redis
 from fastapi import Depends, FastAPI, Response
 from fastapi.responses import Response as FastAPIResponse
 from pydantic import BaseModel, model_validator
-from sqlalchemy import JSON, Column, Integer, String, Uuid, create_engine, select
+from sqlalchemy import JSON, Column, Integer, String, Uuid, create_engine, select, func
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -204,7 +204,7 @@ async def get_objects(db: AsyncSession = Depends(get_db)):
     messages_data = [{"id": msg.id, "u_uuid": str(msg.u_uuid), "m_pos": msg.m_pos, "part1": msg.part1, "part2": msg.part2, "part3": msg.part3} for msg in messages]
 
     # Get phantoms
-    result = await db.execute(select(Phantom).order_by(Phantom.id.desc()).limit(20))
+    result = await db.execute(select(Phantom).order_by(func.random()).limit(20))
     phantoms = result.scalars().all()
     phantoms_data = [{"id": ph.id, "u_uuid": str(ph.u_uuid), "data": ph.data} for ph in phantoms]
 
